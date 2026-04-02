@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Strongest Earthquake 48H</title>
+
+<style>
+body {
+    margin: 0;
+    background: transparent;
+    font-family: Arial, sans-serif;
+}
+
+#quakeBar {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(0,0,0,0.7);
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 28px;
+}
+
+.label {
+    margin-right: 15px;
+    opacity: 0.8;
+}
+
+.magnitude {
+    background: #7b3fe4;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: bold;
+    margin-right: 15px;
+    animation: pulse 2.5s infinite;
+}
+
+.location {
+    font-weight: bold;
+}
+
+@keyframes pulse {
+    0%   { box-shadow: 0 0 0px rgba(123,63,228,0.4); }
+    50%  { box-shadow: 0 0 12px rgba(123,63,228,0.7); }
+    100% { box-shadow: 0 0 0px rgba(123,63,228,0.4); }
+}
+</style>
+</head>
+
+<body>
+
+<div id="quakeBar">
+    <div class="label">STRONGEST EARTHQUAKE LAST 48H</div>
+    <div class="magnitude" id="mag">--</div>
+    <div class="location" id="loc">Loading...</div>
+</div>
+
+<script>
+async function loadQuake() {
+    try {
+        const now = Date.now();
+        const cutoff = now - (48 * 60 * 60 * 1000); // 48h späť
+
+        // načítaj oba feedy paralelne
+        const [dayRes, weekRes] = await Promise.all([
+            fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"),
+            fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson")
+        ]);
+
+        const dayData = await dayRes.json();
+        const weekData = await weekRes.json();
+
+        // spoj dáta (a odstráň duplicity podľa ID)
+        const all = [...dayData.features, ...weekData.features];
+        const unique = {};
+        all.forEach(q => unique[q.id] = q);
+        const quakes = Object.values(unique);
+
+        // filtruj iba posledných 48h
+        const last48h = quakes.filter(q => q.properties.time >= cutoff);
+
+        let strongest = null;
+
+        last48h.forEach(q => {
+            if (!strongest || q.properties.mag > strongest.properties.mag) {
+                strongest = q;
+            }
+        });
+
+        if (strongest) {
+            document.getElementById("mag").innerText = strongest.properties.mag.toFixed(1);
+            document.getElementById("loc").innerText = strongest.properties.place;
+        } else {
+            document.getElementById("mag").innerText = "--";
+            document.getElementById("loc").innerText = "No significant data";
+        }
+
+    } catch (e) {
+        document.getElementById("loc").innerText = "Error loading data";
+    }
+}
+
+// prvé načítanie
+loadQuake();
+
+// refresh každých 5 min (posúvanie 48h okna v čase)
+setInterval(loadQuake, 300000);
+</script>
+
+</body>
+</html>
