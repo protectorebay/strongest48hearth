@@ -37,8 +37,15 @@ body {
 
 .location {
     font-weight: bold;
+    margin-right: 15px;
 }
 
+.timeago {
+    font-size: 22px;
+    opacity: 0.75;
+}
+
+/* jemný pulz */
 @keyframes pulse {
     0%   { box-shadow: 0 0 0px rgba(123,63,228,0.4); }
     50%  { box-shadow: 0 0 12px rgba(123,63,228,0.7); }
@@ -53,15 +60,17 @@ body {
     <div class="label">STRONGEST EARTHQUAKE LAST 48H</div>
     <div class="magnitude" id="mag">--</div>
     <div class="location" id="loc">Loading...</div>
+    <div class="timeago" id="timeago">--:--</div>
 </div>
 
 <script>
+let quakeTime = null;
+
 async function loadQuake() {
     try {
         const now = Date.now();
-        const cutoff = now - (48 * 60 * 60 * 1000); // 48h späť
+        const cutoff = now - (48 * 60 * 60 * 1000);
 
-        // načítaj oba feedy paralelne
         const [dayRes, weekRes] = await Promise.all([
             fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"),
             fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson")
@@ -70,13 +79,11 @@ async function loadQuake() {
         const dayData = await dayRes.json();
         const weekData = await weekRes.json();
 
-        // spoj dáta (a odstráň duplicity podľa ID)
         const all = [...dayData.features, ...weekData.features];
         const unique = {};
         all.forEach(q => unique[q.id] = q);
         const quakes = Object.values(unique);
 
-        // filtruj iba posledných 48h
         const last48h = quakes.filter(q => q.properties.time >= cutoff);
 
         let strongest = null;
@@ -90,9 +97,11 @@ async function loadQuake() {
         if (strongest) {
             document.getElementById("mag").innerText = strongest.properties.mag.toFixed(1);
             document.getElementById("loc").innerText = strongest.properties.place;
+            quakeTime = strongest.properties.time;
         } else {
             document.getElementById("mag").innerText = "--";
-            document.getElementById("loc").innerText = "No significant data";
+            document.getElementById("loc").innerText = "No data";
+            quakeTime = null;
         }
 
     } catch (e) {
@@ -100,11 +109,28 @@ async function loadQuake() {
     }
 }
 
-// prvé načítanie
+function updateTimeAgo() {
+    if (!quakeTime) return;
+
+    const now = Date.now();
+    const diff = now - quakeTime;
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+
+    document.getElementById("timeago").innerText =
+        String(hours).padStart(2, '0') + ":" +
+        String(minutes).padStart(2, '0');
+}
+
+// init
 loadQuake();
 
-// refresh každých 5 min (posúvanie 48h okna v čase)
+// refresh dát (posun 48h okna)
 setInterval(loadQuake, 300000);
+
+// live time ago
+setInterval(updateTimeAgo, 1000);
 </script>
 
 </body>
