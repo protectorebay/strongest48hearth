@@ -37,12 +37,6 @@ body {
 
 .location {
     font-weight: bold;
-    margin-right: 15px;
-}
-
-.timeago {
-    font-size: 22px;
-    opacity: 0.75;
 }
 
 /* jemný pulz */
@@ -60,7 +54,6 @@ body {
     <div class="label">STRONGEST EARTHQUAKE LAST 48H</div>
     <div class="magnitude" id="mag">--</div>
     <div class="location" id="loc">Loading...</div>
-    <div class="timeago" id="timeago">--:--</div>
 </div>
 
 <script>
@@ -96,7 +89,7 @@ async function loadQuake() {
 
         if (strongest) {
             document.getElementById("mag").innerText = strongest.properties.mag.toFixed(1);
-            document.getElementById("loc").innerText = strongest.properties.place;
+            updateLocation(strongest.properties.place);
             quakeTime = strongest.properties.time;
         } else {
             document.getElementById("mag").innerText = "--";
@@ -109,8 +102,11 @@ async function loadQuake() {
     }
 }
 
-function updateTimeAgo() {
-    if (!quakeTime) return;
+function updateLocation(place) {
+    if (!quakeTime) {
+        document.getElementById("loc").innerText = place;
+        return;
+    }
 
     const now = Date.now();
     const diff = now - quakeTime;
@@ -118,19 +114,27 @@ function updateTimeAgo() {
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff / (1000 * 60)) % 60);
 
-    document.getElementById("timeago").innerText =
+    const timeAgo =
         String(hours).padStart(2, '0') + ":" +
         String(minutes).padStart(2, '0');
+
+    document.getElementById("loc").innerText = place + " • " + timeAgo;
 }
+
+// live update času bez zmeny layoutu
+setInterval(() => {
+    const loc = document.getElementById("loc").innerText;
+    if (!quakeTime || !loc) return;
+
+    const place = loc.split(" • ")[0];
+    updateLocation(place);
+}, 1000);
 
 // init
 loadQuake();
 
-// refresh dát (posun 48h okna)
+// refresh dát
 setInterval(loadQuake, 300000);
-
-// live time ago
-setInterval(updateTimeAgo, 1000);
 </script>
 
 </body>
